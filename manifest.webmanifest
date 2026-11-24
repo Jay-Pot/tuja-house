@@ -1,0 +1,13 @@
+{
+  "name": "팥빵이네 투자하우스",
+  "short_name": "투자하우스",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f9f9f7",
+  "theme_color": "#8c3a3a",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
