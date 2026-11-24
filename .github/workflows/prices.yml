@@ -1,0 +1,58 @@
+# 시세 받아 두기 — 깃허브가 정해진 시간마다 돌려서 data 브랜치의 prices.json 을 새로 쓴다.
+# 앱은 그 파일만 읽는다. (브라우저에서는 네이버·야후를 직접 못 부르기 때문)
+name: prices
+
+on:
+  schedule:
+    # 한국 장 (평일 09:00~16:00 KST = 00~07 UTC) 15분마다
+    - cron: '3,18,33,48 0-7 * * 1-5'
+    # 미국 장 (22:30~06:00 KST 무렵 = 13~21 UTC) 30분마다
+    - cron: '9,39 13-21 * * 1-5'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['data/tickers.json', 'scripts/fetch-prices.mjs', '.github/workflows/prices.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prices
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 직전 자료 가져오기(처음에는 없다)
+        run: |
+          mkdir -p out
+          if git clone -q --depth 1 --branch data "https://github.com/${{ github.repository }}.git" prev; then
+            cp prev/*.json out/ 2>/dev/null || true
+            cp -r prev/h out/ 2>/dev/null || true
+          fi
+      - name: 시세 받기 (일봉·배당은 장 마감 뒤와 수동 실행 때만)
+        env:
+          # (선택) 보유·관심에 담은 종목도 차트 대상에 넣으려면 저장소 Settings → Secrets and variables → Actions 에
+          # 변수 DATA_REPO(아이디/보관함 저장소)와 비밀값 DATA_TOKEN(보관함 토큰)을 넣는다. 없으면 대표 종목만 받는다.
+          DATA_REPO: ${{ vars.DATA_REPO }}
+          DATA_TOKEN: ${{ secrets.DATA_TOKEN }}
+        run: |
+          MODE=""
+          H=$(date -u +%H)
+          if [ "${{ github.event_name }}" != "schedule" ] || [ "$H" = "07" ] || [ "$H" = "21" ]; then MODE="--full"; fi
+          node scripts/fetch-prices.mjs out $MODE
+      - name: data 브랜치에 올리기(기록은 한 개만 남긴다)
+        run: |
+          cd out
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "prices $(date -u +%FT%TZ)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
