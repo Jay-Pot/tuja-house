@@ -10,7 +10,7 @@ import { $, esc, won, num, p1, px, chg, delta, toast, openDialog, closeDialog, d
 
 const S = () => store.S;
 const TAB_KEYS = views.TABS.map((t) => t[0]);
-const ui = { member: '', holdMode: 'name', sort: 'value', logMode: 'trade', logSide: '', trend: 'family', watchGroup: '', watchView: 'detail', watchRange: 120, sector: '', mapSort: 'chg', noteKind: '', noteQ: '', tool: 'sim', toolState: {}, stockRange: 200, imgRange: 'area/year', editCards: false, editLinks: false };
+const ui = { member: '', holdMode: 'name', sort: 'value', logMode: 'trade', logSide: '', trend: 'family', watchGroup: '', watchView: 'detail', watchRange: 120, sector: '', mapSort: 'chg', noteKind: '', noteQ: '', noteMode: 'notes', guruView: 'one', guru: '', guruAll: false, tool: 'sim', toolState: {}, stockRange: 200, imgRange: 'area/year', editCards: false, editLinks: false };
 
 const tab = () => { const h = location.hash.slice(1); return TAB_KEYS.includes(h) ? h : 'home'; };
 
@@ -226,6 +226,7 @@ const dialogs = {
            <div class="nchart"><img src="https://ssl.pstatic.net/imgfinance/chart/item/${ui.imgRange}/${esc(q.code)}.png?t=${Math.floor(Date.now() / 600000)}" alt="${esc(name)} 차트" loading="lazy" referrerpolicy="no-referrer"></div>
            <p class="small muted">네이버 증권의 차트 그림이에요. 200일선·배당까지 보려면 이 종목을 보유나 관심에 담아 두세요(차트 자동 추가를 켠 경우).</p>`
         : q ? `<p class="small muted">${wanted ? '이 종목을 차트 대상에 올려 뒀어요. 차트 자동 추가를 켜 두었다면 다음 시세 갱신(15~30분) 뒤부터 차트·200일선이 나옵니다.' : '차트 자료가 아직 없어요.'} 아래 링크에서 바로 볼 수도 있어요.</p>` : '<p class="small muted">상장 종목 목록에 없는 이름이라 시세가 없어요.</p>')}
+      ${views.guruHolders(name)}
       <h4>내 보유</h4>
       ${g ? `<p class="small">${num(g.qty, 4)}주 · ${won(g.value)}${g.pl != null ? ` · ${delta(g.pl, g.plPct)}` : ''}</p>
         <ul class="list">${rows.map((p) => `<li><button class="lrow" data-act="edit-holding" data-v="${p.id}"><span>${esc(p.account.name)}<small>${num(p.qty, 4)}주${p.cost ? ` · 매입 ${won(p.cost)}` : ''}</small></span><b>${won(p.value)}${p.pl != null ? `<small>${delta(p.pl, p.plPct)}</small>` : ''}</b></button></li>`).join('')}</ul>` : '<p class="small muted">보유하고 있지 않아요.</p>'}
@@ -345,7 +346,9 @@ const removeAnd = (coll, msg) => (el) => { del(coll, el.dataset.v); closeDialog(
 
 const actions = {
   'hold-member': setUi('member'), 'log-member': setUi('member'), 'hold-mode': setUi('holdMode'), 'log-mode': setUi('logMode'), 'log-side': setUi('logSide'),
-  'trend-mode': setUi('trend'), 'watch-group': setUi('watchGroup'), 'watch-view': setUi('watchView'), 'map-sort': setUi('mapSort'), 'note-kind': setUi('noteKind'),
+  'trend-mode': setUi('trend'), 'watch-group': setUi('watchGroup'), 'watch-view': setUi('watchView'), 'map-sort': setUi('mapSort'), 'note-kind': setUi('noteKind'), 'note-mode': setUi('noteMode'), 'guru-view': setUi('guruView'),
+  'guru-pick': (el) => { ui.guru = el.dataset.v; ui.guruAll = false; render(); },
+  'guru-all': () => { ui.guruAll = !ui.guruAll; render(); },
   'watch-range': (el) => { ui.watchRange = +el.dataset.v; render(); },
   'pick-sector': (el) => { ui.sector = ui.sector === el.dataset.v ? '' : el.dataset.v; render(); },
   'stock-range': (el) => { ui.stockRange = +el.dataset.v; dialogs.stock($('#dlg [data-stock]').dataset.stock); },
@@ -565,6 +568,7 @@ const refreshMarkets = async () => {
 };
 const refreshAll = () => store.loadPrices().then((ok) => { if (ok) { safeRender(); refreshMarkets(); } });
 store.loadPrices().then(() => { snapshot(); render(); refreshMarkets(); });
+store.loadGurus().then((ok) => { if (ok && tab() === 'notes') safeRender(); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshAll(); });
 setInterval(() => { if (document.visibilityState === 'visible') refreshAll(); }, 5 * 60 * 1000);
 

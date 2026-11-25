@@ -425,3 +425,14 @@ export function searchTickers(query, limit = 8) {
   }
   return out.sort((a, b) => a.rank - b.rank || a.name.length - b.name.length).slice(0, limit);
 }
+
+// 대가 포트폴리오(공개 13F 자료). 저장소의 data/gurus.json 한 파일이고, 분기마다 새로 올린다. 내 자료와 섞이지 않는다.
+export const GURUS = { data: null, failed: false };
+export async function loadGurus() {
+  try {
+    const r = await fetch(`data/gurus.json?t=${Math.floor(Date.now() / 3600000)}`);
+    if (!r.ok) throw new Error(r.status);
+    GURUS.data = await r.json(); GURUS.failed = false;
+    return true;
+  } catch { GURUS.failed = true; return false; }
+}

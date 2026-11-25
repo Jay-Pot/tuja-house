@@ -1,5 +1,5 @@
 // 화면: 머리(총자산·탭)와 탭 여덟 개. 여기서는 HTML 글자만 만들고, 눌렀을 때 하는 일은 app.js 가 맡는다.
-import { S, D, DEMO, PX, CATS, ASSET_CATS, quote, fxUSD, fxOf, sectorOf, today } from './store.js';
+import { S, D, DEMO, PX, ALL, GURUS, CATS, ASSET_CATS, quote, fxUSD, fxOf, sectorOf, today } from './store.js';
 import { summary, positions, byName, bySector, dividends, monthlyNet, acctCash } from './model.js';
 import { SY, syncOn } from './sync.js';
 import { esc, won, man, num, qty, p1, md, px, chg, delta, money, CUR_SYM } from './ui.js';
@@ -341,7 +341,68 @@ export function map(ui) {
 
 // ───────────────────────── 리서치
 export const NOTE_KINDS = [['stock', '🔬 종목'], ['market', '🌍 시장'], ['review', '📝 매매 복기'], ['idea', '💡 아이디어']];
+// ───────────────────────── 리서치 › 대가 포트폴리오
+// 공개된 13F 자료(data/gurus.json)를 보여 준다. 내 보유·관심과 겹치는지는 이 기기 안에서만 계산하고 어디에도 올리지 않는다.
+const CO = { GOOG: 'GOOGL', 'BRK.A': 'BRK.B', 'BF.A': 'BF.B', LLYVA: 'LLYVK' };   // 같은 회사의 다른 주식 종류는 한 회사로 센다
+const MY_ALIAS = { HomeDepot: 'HD' };
+const coKey = (t) => CO[t] || t;
+const myKeys = (list) => new Set(list.map((x) => coKey(MY_ALIAS[x.name] || x.name)));
+const usName = (t, n) => ALL.data?.us?.items?.[t]?.[0] || n;
+const usdShort = (v) => `${num(v / 1e8)}억 달러`;
+const mineBadge = (t, mine) => (mine.held.has(coKey(t)) ? ' <span class="badge">보유</span>' : mine.watch.has(coKey(t)) ? ' <span class="badge">관심</span>' : '');
+const actBadge = (a) => (a == null ? '' : a === 'new' ? ' <span class="badge up">신규</span>' : ` <span class="badge ${a > 0 ? 'up' : 'down'}">${a > 0 ? '확대 +' : '축소 −'}${num(Math.abs(a), 1)}%</span>`);
+const gbar = (ratio) => `<i class="gbar"><i style="width:${Math.max(2, Math.round(ratio * 100))}%"></i></i>`;
+const guruRow = ([t, n, pct, act], max, mine) => `<li><button class="lrow" data-act="open-stock" data-v="${esc(t)}"><span>${esc(usName(t, n))}${mineBadge(t, mine)}${actBadge(act)}<small>${esc(t)}</small>${gbar(pct / max)}</span><b>${num(pct, 1)}%</b></button></li>`;
+
+function gurus(ui) {
+  const G = GURUS.data;
+  if (!G) return card('대가 포트폴리오', empty(GURUS.failed ? '대가 자료를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.' : '불러오는 중이에요…'));
+  const mine = { held: myKeys(S.holdings), watch: myKeys(S.watch) };
+  const viewSeg = seg('guru-view', ui.guruView, [['one', '대가별'], ['overlap', '겹침 순위'], ['moves', '분기 변화']]);
+  const foot = `<p class="small muted">${esc(G.period)}(${esc(G.asOf)}) 기준 · ${esc(G.source)} 공시는 분기가 끝나고 45일 안에 나오므로 지금 모습과 다를 수 있어요. 투자 권유가 아니에요.</p>`;
+  let body;
+  if (ui.guruView === 'overlap') {
+    const m = new Map();
+    G.gurus.forEach((g) => {
+      const seen = new Map();
+      g.top.forEach(([t, n, pct]) => { const k = coKey(t), o = seen.get(k) || { n: usName(k, n.replace(/ [ABC]$/, '')), pct: 0 }; o.pct += pct; seen.set(k, o); });
+      seen.forEach((v, k) => { const o = m.get(k) || { k, n: v.n, who: [], sum: 0 }; o.who.push(`${g.name} ${num(v.pct, 1)}%`); o.sum += v.pct; m.set(k, o); });
+    });
+    const list = [...m.values()].filter((o) => o.who.length >= 2).sort((a, b) => b.who.length - a.who.length || b.sum - a.sum);
+    body = card(`여러 대가가 함께 든 종목 <span class="muted">${list.length}개</span>`, `<p class="small muted">${G.gurus.length}명 가운데 두 명 이상이 든 회사예요. 알파벳 A·C처럼 종류만 다른 주식은 한 회사로 셌어요.</p>
+      <ul class="list">${list.map((o) => `<li><button class="lrow" data-act="open-stock" data-v="${esc(o.k)}"><span>${esc(o.n)}${mineBadge(o.k, mine)}<small>${esc(o.who.join(' · '))}</small>${gbar(o.who.length / G.gurus.length)}</span><b>${o.who.length}명</b></button></li>`).join('')}</ul>`);
+  } else if (ui.guruView === 'moves') {
+    const all = G.gurus.flatMap((g) => g.top.filter((r) => r[3] != null).map((r) => ({ g: g.name, t: r[0], n: r[1], pct: r[2], a: r[3] })));
+    const row = (x) => `<li><button class="lrow" data-act="open-stock" data-v="${esc(x.t)}"><span>${esc(usName(x.t, x.n))}${mineBadge(x.t, mine)}<small>${esc(x.g)} · 비중 ${num(x.pct, 1)}%</small></span><b class="${x.a === 'new' || x.a > 0 ? 'up' : 'down'}">${x.a === 'new' ? '신규' : `${x.a > 0 ? '+' : '−'}${num(Math.abs(x.a), 1)}%`}</b></button></li>`;
+    const grp = (title, arr, note = '') => (arr.length ? card(`${title} <span class="muted">${arr.length}건</span>`, `${note ? `<p class="small muted">${note}</p>` : ''}<ul class="list">${arr.map(row).join('')}</ul>`) : '');
+    const up = all.filter((x) => x.a !== 'new' && x.a > 0).sort((a, b) => b.a - a.a), dn = all.filter((x) => x.a !== 'new' && x.a < 0).sort((a, b) => a.a - b.a);
+    body = grp('새로 산 종목', all.filter((x) => x.a === 'new').sort((a, b) => b.pct - a.pct))
+      + grp('많이 늘린 종목', up.slice(0, 12), '보유 주식 수를 직전 분기보다 얼마나 늘렸는지예요.')
+      + grp('많이 줄인 종목', dn.slice(0, 12), '전부 판 종목은 보유표에서 사라져서 여기에는 안 나와요.');
+  } else {
+    const g = G.gurus.find((x) => x.id === ui.guru) || G.gurus[0];
+    const rows = ui.guruAll ? g.top : g.top.slice(0, 10);
+    body = `${chips('guru-pick', g.id, G.gurus.map((x) => [x.id, esc(x.name)]))}
+      ${card(`${esc(g.name)} <span class="muted">${esc(g.firm)}</span>`, `<p class="small">${esc(g.phil)}</p>
+        <p class="small muted">${g.count}종목 · ${usdShort(g.value)}${g.count > g.top.length ? ` · 비중 상위 ${g.top.length}개만 실었어요` : ''}</p>
+        <ul class="list">${rows.map((r) => guruRow(r, g.top[0][2], mine)).join('')}</ul>
+        ${g.top.length > 10 ? `<button class="btn sm ghost" data-act="guru-all">${ui.guruAll ? '접기' : `나머지 ${g.top.length - 10}개 더 보기`}</button>` : ''}`)}`;
+  }
+  return `${viewSeg}${body}${foot}`;
+}
+
+// 종목 상세에 붙는 한 줄: 이 종목을 든 대가와 비중
+export function guruHolders(name) {
+  const G = GURUS.data;
+  if (!G) return '';
+  const k = coKey(MY_ALIAS[name] || name);
+  const who = G.gurus.map((g) => { const pct = g.top.filter((r) => coKey(r[0]) === k).reduce((a, r) => a + r[2], 0); return pct ? `${g.name} ${num(pct, 1)}%` : ''; }).filter(Boolean);
+  return who.length ? `<h4>대가 보유 <span class="muted small">${esc(G.period)}</span></h4><p class="small">${esc(who.join(' · '))}</p>` : '';
+}
+
 export function notes(ui) {
+  const modeSeg = seg('note-mode', ui.noteMode, [['notes', '내 노트'], ['gurus', '대가 포트폴리오']]);
+  if (ui.noteMode === 'gurus') return `${modeSeg}${gurus(ui)}`;
   const q = ui.noteQ.trim().toLowerCase();
   const list = S.notes.filter((n) => (!ui.noteKind || n.kind === ui.noteKind) && (!q || `${n.title} ${n.name} ${n.body}`.toLowerCase().includes(q))).sort((a, b) => b.date.localeCompare(a.date) || b.u - a.u);
   const kind = Object.fromEntries(NOTE_KINDS);
@@ -350,7 +411,7 @@ export function notes(ui) {
       <p class="small muted">같은 제목의 파일을 다시 올리면 새 것으로 바뀌어요.</p>`
       : empty('HTML·텍스트 파일을 올리면 여기서 바로 열어 볼 수 있어요. 동기화를 켜 두면 다른 기기에서도 보입니다.'),
     '<button class="btn sm ghost" data-act="add-doc">＋ 문서 올리기</button>');
-  return `<div class="row between">${chips('note-kind', ui.noteKind, [['', `전체 ${S.notes.length}`], ...NOTE_KINDS])}<button class="btn primary sm" data-act="add-note">＋ 노트 쓰기</button></div>
+  return `${modeSeg}<div class="row between">${chips('note-kind', ui.noteKind, [['', `전체 ${S.notes.length}`], ...NOTE_KINDS])}<button class="btn primary sm" data-act="add-note">＋ 노트 쓰기</button></div>
     ${docsCard}
     <input class="search" type="search" placeholder="노트 검색 (제목 · 종목 · 내용)" value="${esc(ui.noteQ)}" data-act="note-q">
     ${list.length ? `<div class="grid cols">${list.map((n) => `<button class="card note" data-act="edit-note" data-v="${n.id}">
