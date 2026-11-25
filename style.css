@@ -386,3 +386,8 @@ dialog.doc[open] { display: grid; }
 #tip .muted { color: inherit; opacity: .7; }
 #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30; background: var(--ink); color: var(--plane); padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; max-width: calc(100vw - 32px); box-shadow: 0 6px 24px rgba(0, 0, 0, .25); }
 [hidden] { display: none !important; }
+
+/* 리서치 › 대가 포트폴리오: 비중 막대 */
+.gbar { display: block; height: 4px; margin-top: 5px; border-radius: 2px; background: var(--panel); overflow: hidden; }
+.gbar > i { display: block; height: 100%; border-radius: 2px; background: var(--ink2); }
+.lrow b.up, .lrow b.down { font-weight: 700; }
