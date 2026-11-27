@@ -41,7 +41,7 @@ export function head() {
   const syncLabel = { off: '동기화 꺼짐', busy: '동기화 중…', ok: '동기화됨', error: '동기화 오류', offline: '오프라인' }[syncOn() ? SY.state === 'off' ? 'busy' : SY.state : 'off'];
   return `${DEMO.on ? '<div class="demobar">🎬 데모 모드 — 가상의 가족 자료를 보여 드려요. 실제 자료는 그대로 있고, 여기서 고친 것은 저장되지 않아요. <button class="btn sm" data-act="toggle-demo">종료</button></div>' : ''}<div class="brandrow">
       <div class="logo" aria-hidden="true"><span class="bean"></span></div>
-      <div><h1>팥빵이네 투자하우스 <small>PATBBANG HOUSE</small></h1><p class="tagline">${hello} · 차곡차곡 쌓이는 우리 집 자산</p></div>
+      <div><h1>재현애 투자하우스 <small>INVEST HOUSE</small></h1><p class="tagline">${hello} · 차곡차곡 쌓이는 우리 집 자산</p></div>
     </div>
     <div class="headrow">
       <div class="total">
