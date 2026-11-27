@@ -11,7 +11,8 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
-      const res = await fetch(e.request);
+      // 브라우저에 남은 옛 파일을 쓰지 않고 서버에 바뀌었는지 물어본다(안 바뀌었으면 내려받지 않는다).
+      const res = await fetch(e.request, { cache: 'no-cache' }).catch(() => fetch(e.request));
       if (res.ok) cache.put(e.request, res.clone());
       return res;
     } catch {
