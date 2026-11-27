@@ -25,13 +25,13 @@ export const ASSET_CATS = CATS.slice(2);
 export const LIQUID = new Set(['brokerCash', 'deposit']);
 
 // 기기끼리 맞추는 묶음들. 모든 항목은 id 와 u(마지막으로 고친 시각)를 가진다.
-export const COLLS = ['members', 'accounts', 'holdings', 'assets', 'trades', 'flows', 'watch', 'notes', 'links', 'payouts', 'wanted', 'docs', 'history'];
+export const COLLS = ['members', 'accounts', 'holdings', 'assets', 'trades', 'flows', 'watch', 'notes', 'links', 'payouts', 'wanted', 'docs', 'plans', 'history'];
 
 function blank() {
   return {
     v: 2,
     members: [{ id: 'm1', name: '나', emoji: '🧑', goal: 0, u: 0 }],
-    accounts: [], holdings: [], assets: [], trades: [], flows: [], watch: [], notes: [], links: [], payouts: [], wanted: [], docs: [], history: [],
+    accounts: [], holdings: [], assets: [], trades: [], flows: [], watch: [], notes: [], links: [], payouts: [], wanted: [], docs: [], plans: [], history: [],
     meta: { goal: 0, targets: {}, u: 0 },
     deleted: {},
   };

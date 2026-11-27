@@ -93,6 +93,22 @@ const dialogs = {
       <label class="wide">메모<input name="memo" value="${esc(a?.memo || '')}"></label>
       ${foot(a ? 'del-asset' : '', a?.id)}</form>`);
   },
+  plan(p, memberId) {
+    if (!S().accounts.length) return dialogs.account(null);
+    const [k, v] = String(p?.every || 'daily').split(':');
+    openDialog(`<form method="dialog" class="form" data-form="plan"><h3>${p ? '모으기 고치기' : '모으기 추가'}</h3><input type="hidden" name="id" value="${p?.id || ''}">
+      <label class="wide">계좌${acctSel(p?.accountId || S().accounts.find((a) => a.memberId === (memberId || ui.member))?.id)}</label>
+      <label class="wide">종목<input name="name" data-ticker autocomplete="off" required value="${esc(p?.name || '')}" placeholder="종목 이름·코드로 찾기"></label>
+      <label>한 번에 몇 주<input name="qty" type="number" min="0" step="any" inputmode="decimal" required value="${p?.qty ?? 1}"></label>
+      <label>주기<select name="kind">${opt('daily', '매일', k)}${opt('weekly', '매주', k)}${opt('monthly', '매월', k)}</select></label>
+      <label>요일 <small>매주일 때</small><select name="wd">${['일', '월', '화', '수', '목', '금', '토'].map((d, i) => opt(i, d + '요일', k === 'weekly' ? v : 3)).join('')}</select></label>
+      <label>날짜 <small>매월일 때</small><input name="md" type="number" min="1" max="31" inputmode="numeric" value="${k === 'monthly' ? v : 10}"></label>
+      <label>상태<select name="on">${opt('1', '진행 중', p?.on === false ? '0' : '1')}${opt('0', '멈춤', p?.on === false ? '0' : '1')}</select></label>
+      <label>앱에 자동 반영<select name="auto">${opt('0', '안 함 (기록만)', p?.auto ? '1' : '0')}${opt('1', '함 (연동 안 되는 계좌)', p?.auto ? '1' : '0')}</select></label>
+      <label class="wide">메모<input name="memo" value="${esc(p?.memo || '')}"></label>
+      <p class="small muted wide">자동 반영을 켜면 평일 저녁에 일정대로 수량을 늘리고 예수금을 줄여요(실제 주문 아님). 메리츠·토스처럼 잔고가 자동으로 들어오는 계좌는 「안 함」으로 두세요.</p>
+      ${foot(p ? 'del-plan' : '', p?.id)}</form>`);
+  },
   payout(p, name) {
     openDialog(`<form method="dialog" class="form" data-form="payout"><h3>${p ? '배당 기록 고치기' : '배당 등록'}</h3><input type="hidden" name="id" value="${p?.id || ''}">
       <label>날짜<input type="date" name="date" required value="${p?.date || today()}"></label>
@@ -344,6 +360,7 @@ const setUi = (k) => (el) => { ui[k] = el.dataset.v; render(); };
 const removeAnd = (coll, msg) => (el) => { del(coll, el.dataset.v); closeDialog(); render(); if (msg) toast(msg); };
 
 const actions = {
+  'plan-member': setUi('member'), 'add-plan': (el) => dialogs.plan(null, el.dataset.v), 'edit-plan': (el) => dialogs.plan(find('plans', el.dataset.v)), 'del-plan': removeAnd('plans'),
   'hold-member': setUi('member'), 'log-member': setUi('member'), 'hold-mode': setUi('holdMode'), 'log-mode': setUi('logMode'), 'log-side': setUi('logSide'),
   'trend-mode': setUi('trend'), 'watch-group': setUi('watchGroup'), 'watch-view': setUi('watchView'), 'map-sort': setUi('mapSort'), 'note-kind': setUi('noteKind'),
   'watch-range': (el) => { ui.watchRange = +el.dataset.v; render(); },
@@ -451,6 +468,17 @@ const forms = {
   watch(f) { const n = f.name.trim(); if (!S().watch.some((w) => w.name === n)) put('watch', { name: n, group: f.group.trim(), memo: f.memo.trim() }); },
   note(f) { put('notes', { ...(find('notes', f.id) || {}), date: f.date, kind: f.kind, title: f.title.trim(), name: f.name.trim(), url: f.url.trim(), body: f.body }); },
   goal(f) { store.setGoal(n0(f.goal) || 0); },
+  plan(f) {
+    const qty = Number(f.qty);
+    if (!(qty > 0)) throw new Error('수량을 확인해 주세요.');
+    const a = find('accounts', f.accountId);
+    if (!a) throw new Error('계좌를 골라 주세요.');
+    const every = f.kind === 'weekly' ? `weekly:${f.wd}` : f.kind === 'monthly' ? `monthly:${Math.min(31, Math.max(1, Math.round(Number(f.md) || 1)))}` : 'daily';
+    const old = find('plans', f.id);
+    const auto = f.auto === '1';
+    // 자동 반영을 새로 켠 날부터 적용한다(그 전 것은 이미 잔고에 들어 있다고 본다).
+    put('plans', { ...(old || {}), memberId: a.memberId, accountId: a.id, name: f.name.trim(), qty, every, on: f.on !== '0', auto, since: auto ? (old?.auto && old.since ? old.since : today()) : (old?.since || ''), memo: f.memo.trim() });
+  },
   payout(f) {
     const amount = Number(f.amount);
     if (!(amount > 0)) throw new Error('금액을 확인해 주세요.');

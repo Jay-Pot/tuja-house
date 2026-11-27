@@ -6,7 +6,7 @@ import { esc, won, man, num, qty, p1, md, px, chg, delta, money, CUR_SYM } from 
 import { stackBar, legend, sparkline, monthBars } from './charts.js';
 
 export const TABS = [
-  ['home', '🏠', '홈'], ['hold', '💼', '보유'], ['log', '📝', '기록'], ['watch', '⭐', '관심'],
+  ['home', '🏠', '홈'], ['hold', '💼', '보유'], ['log', '📝', '기록'], ['plans', '🌱', '모으기'], ['watch', '⭐', '관심'],
   ['map', '🗺', '업종지도'], ['notes', '🔍', '리서치'], ['tools', '🧪', '분석·도구'], ['set', '⚙️', '가족·설정'],
 ];
 const CAT_CLS = { stock: 's1', brokerCash: 's2', deposit: 's3', saving: 's4', realEstate: 's5', bond: 's6', crypto: 's7', metal: 's8', other: 's0' };
@@ -28,6 +28,37 @@ const memberChips = (act, cur) => (S.members.length > 1 ? chips(act, cur, [['', 
 const stat = (label, value, sub = '') => `<div><span>${label}</span><b>${value}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
 const prog = (ratio, cls = 's1') => `<div class="prog-track" role="img" aria-label="${p1(ratio)}"><i class="${cls}" style="width:${Math.max(0, Math.min(1, ratio)) * 100}%"></i></div>`;
 const empty = (msg) => `<p class="empty">${msg}</p>`;
+
+// ───────────────────────── 모으기(정기 매수)
+const WD = ['일', '월', '화', '수', '목', '금', '토'];
+export const planWhen = (every) => { const [k, v] = String(every || 'daily').split(':'); return k === 'weekly' ? `매주 ${WD[+v] || ''}요일` : k === 'monthly' ? `매월 ${v}일` : '매일'; };
+// 한 달에 몇 번 사는가(어림): 매일 = 거래일 약 21일, 매주 = 약 4.35번
+const planPerMonth = (every) => { const k = String(every || 'daily').split(':')[0]; return k === 'weekly' ? 52 / 12 : k === 'monthly' ? 1 : 21; };
+export function plans(ui) {
+  const allPlans = S.plans || [];
+  const list = allPlans.filter((p) => !ui.member || p.memberId === ui.member);
+  const monthly = (p) => { if (p.on === false) return 0; const q = quote(p.name); return q ? q.krw * p.qty * planPerMonth(p.every) : 0; };
+  const top = `${memberChips('plan-member', ui.member)}
+    <section class="card sumcard">
+      <div class="row between"><span class="small muted">한 달에 모으는 금액 <span>(지금 시세로 어림)</span></span><span class="small muted">진행 중 ${list.filter((p) => p.on !== false).length}건</span></div>
+      <p class="big">${won(list.reduce((s, p) => s + monthly(p), 0))}</p>
+      <p class="small muted">매일은 한 달 21거래일, 매주는 4.35번으로 계산해요. 실제 체결가와는 다를 수 있어요.</p>
+    </section>`;
+  if (!allPlans.length) return `${top}${card('🌱 모으기', empty('아직 적어 둔 모으기가 없어요. 증권사에서 자동으로 사고 있는 일정을 여기에 적어 두세요.'), '<button class="btn sm primary" data-act="add-plan">＋ 모으기 추가</button>')}`;
+  const body = S.members.filter((m) => !ui.member || m.id === ui.member).map((m) => {
+    const mine = list.filter((p) => p.memberId === m.id);
+    if (!mine.length) return card(`${m.emoji} ${esc(m.name)}`, empty('적어 둔 모으기가 없어요.'), `<button class="btn sm" data-act="add-plan" data-v="${m.id}">＋ 추가</button>`);
+    const accts = [...new Set(mine.map((p) => p.accountId))];
+    const rows = accts.map((aid) => {
+      const a = S.accounts.find((x) => x.id === aid);
+      const ps = mine.filter((p) => p.accountId === aid);
+      return `<h3 class="subhead">${esc(a?.name || '(지워진 계좌)')} <small class="muted">월 약 ${won(ps.reduce((s, p) => s + monthly(p), 0))}</small></h3>
+        <ul class="list">${ps.map((p) => { const q = quote(p.name); return `<li><button class="lrow" data-act="edit-plan" data-v="${p.id}"><span class="tag ${p.on === false ? 'out' : 'in'}">${p.on === false ? '멈춤' : planWhen(p.every)}</span><span>${esc(p.name)}<small>${p.qty}주씩${p.auto ? ' · 앱에 자동 반영' : ''}${p.memo ? ` · ${esc(p.memo)}` : ''}</small></span><b>${q && p.on !== false ? `월 ${won(monthly(p))}` : '—'}</b></button></li>`; }).join('')}</ul>`;
+    }).join('');
+    return card(`${m.emoji} ${esc(m.name)}`, rows, `<span class="small muted">월 약 ${won(mine.reduce((s, p) => s + monthly(p), 0))}</span> <button class="btn sm" data-act="add-plan" data-v="${m.id}">＋ 추가</button>`);
+  }).join('');
+  return `${top}${body}<p class="small muted">「앱에 자동 반영」은 증권사와 자동 연동이 안 되는 계좌(삼성증권 등)용이에요. 켜 두면 평일 저녁에 일정대로 수량을 늘리고 그만큼 예수금을 줄여요. 실제 주문을 내는 것은 아니에요. 메리츠·토스처럼 잔고가 자동으로 들어오는 계좌는 꺼 두세요.</p>`;
+}
 
 // ───────────────────────── 머리: 이름, 총자산, 도구
 export function head() {
