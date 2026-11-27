@@ -392,6 +392,14 @@ const actions = {
   'export-trades': () => { exportTrades(); toast(`매매일지 ${S().trades.length}건을 CSV로 저장했어요.`); },
   'reset-go': () => { store.resetAll(); closeDialog(); render(); toast('초기화했어요.'); },
   'snap-now': () => { const old = S().history.find((h) => h.id === today()); if (old) old.u = 0; snapshot(); render(); toast('지금 자산을 기록했어요.'); },
+  // 상단 새로고침: 시세와 보관함(동기화)을 함께 다시 받는다
+  'refresh-all': async () => {
+    toast('다시 받는 중…');
+    const [ok] = await Promise.all([store.loadPrices(), syncOn() ? syncNow() : false]);
+    snapshot(); render();
+    const syncBad = syncOn() && SY.state !== 'ok' && SY.state !== 'busy';
+    toast(syncBad ? `${ok ? '시세는 받았지만 ' : ''}동기화하지 못했어요. ${SY.msg || ''}`.trim() : ok ? (syncOn() ? '시세와 계좌 자료를 다시 받았어요.' : '시세를 다시 받았어요.') : '시세를 받지 못했어요.');
+  },
   'refresh-px': async () => { const ok = await store.loadPrices(); snapshot(); render(); toast(ok ? '시세를 다시 받았어요.' : '시세를 받지 못했어요.'); },
   'toggle-hide': () => { D.hide = !D.hide; store.saveDevice(); render(); },
   'toggle-theme': () => { D.theme = { auto: 'light', light: 'dark', dark: 'auto' }[D.theme]; store.saveDevice(); applyDevice(); render(); toast({ auto: '기기 설정대로', light: '밝게', dark: '어둡게' }[D.theme]); },

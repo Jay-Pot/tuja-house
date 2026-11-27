@@ -51,7 +51,7 @@ export function head() {
         ${goal ? `<p class="sub">목표 <b>${won(goal)}</b> · 달성률 <b class="accent">${p1(all.total / goal)}</b></p>` : ''}
       </div>
       <div class="tools">
-        <button class="tool ${pxd && PX.from === 'net' ? 'live' : ''}" data-act="refresh-px" title="시세 다시 받기"><i></i><b>${pxd && PX.from === 'net' ? 'LIVE' : '시세'}</b> ${pxd ? new Date(pxd.updatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '없음'} ↻</button>
+        <button class="tool ${pxd && PX.from === 'net' ? 'live' : ''}" data-act="refresh-all" title="시세와 계좌 자료(동기화)를 함께 다시 받기"><i></i><b>↻ 새로고침</b> 시세 ${pxd ? new Date(pxd.updatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '없음'}</button>
         <button class="tool sync ${syncOn() ? SY.state : 'off'}" data-act="go-sync" title="${esc(SY.msg || syncLabel)}"><i></i>${syncLabel}</button>
         <button class="tool" data-act="toggle-demo" title="가상의 자료로 둘러보기 (실제 자료에는 영향 없음)" aria-pressed="${DEMO.on}">🎬 데모${DEMO.on ? ' 종료' : ''}</button>
         <button class="tool ico" data-act="toggle-usd" title="달러로 보기 / 원화로 보기" aria-pressed="${!!D.usd}">${D.usd ? '$' : '₩'}</button>
